@@ -1,11 +1,37 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import ChatBubble from "@/components/ChatBubble";
 import MoodSlider from "@/components/MoodSlider";
 import { format } from "date-fns";
+
+// PHQ-9 tracking categories
+const phq9Categories = [
+  "interest/pleasure", // Little interest or pleasure in doing things
+  "depressed", // Feeling down, depressed, or hopeless
+  "sleep", // Trouble falling/staying asleep, or sleeping too much
+  "fatigue", // Feeling tired or having little energy
+  "appetite", // Poor appetite or overeating
+  "self-esteem", // Feeling bad about yourself
+  "concentration", // Trouble concentrating
+  "psychomotor", // Moving or speaking slowly/restlessly
+  "suicidal" // Thoughts of self-harm
+];
+
+// Keywords that might indicate PHQ-9 categories
+const phq9Keywords = {
+  "interest/pleasure": ["boring", "don't enjoy", "nothing fun", "no interest", "not interested", "don't care", "apathy"],
+  "depressed": ["sad", "down", "depressed", "hopeless", "empty", "unhappy", "miserable", "terrible"],
+  "sleep": ["insomnia", "can't sleep", "sleeping too much", "tired", "exhausted", "awake", "nightmare"],
+  "fatigue": ["tired", "exhausted", "no energy", "fatigue", "drained", "lethargic", "can't focus"],
+  "appetite": ["not eating", "eating too much", "no appetite", "weight", "food", "hungry", "overeating"],
+  "self-esteem": ["failure", "disappointed", "letting down", "worthless", "guilt", "blame", "hate myself"],
+  "concentration": ["can't focus", "distracted", "hard to concentrate", "focus", "mind wanders", "scattered"],
+  "psychomotor": ["slow", "restless", "agitated", "fidgety", "can't sit still", "moving slowly"],
+  "suicidal": ["better off dead", "harm myself", "suicidal", "end it all", "not worth living", "no point"]
+};
 
 // Mock conversation starter
 const initialMessages = [
@@ -25,41 +51,133 @@ const ChatSession = () => {
   const [mood, setMood] = useState([5]); // Initial mood value
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
+  // PHQ-9 assessment state (0-3 for each of 9 categories, total score 0-27)
+  const [phq9Scores, setPhq9Scores] = useState(
+    Object.fromEntries(phq9Categories.map(cat => [cat, 0]))
+  );
+  const [totalPhq9Score, setTotalPhq9Score] = useState(0);
+  const [phq9Level, setPhq9Level] = useState("");
+  
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Calculate total PHQ-9 score and classification
+  useEffect(() => {
+    const total = Object.values(phq9Scores).reduce((sum, score) => sum + score, 0);
+    setTotalPhq9Score(total);
+    
+    // PHQ-9 score interpretation
+    if (total <= 4) setPhq9Level("Minimal depression");
+    else if (total <= 9) setPhq9Level("Mild depression");
+    else if (total <= 14) setPhq9Level("Moderate depression");
+    else if (total <= 19) setPhq9Level("Moderately severe depression");
+    else setPhq9Level("Severe depression");
+  }, [phq9Scores]);
+
+  // Analyze text for PHQ-9 indicators
+  const analyzeText = (text: string) => {
+    const lowercaseText = text.toLowerCase();
+    const newScores = { ...phq9Scores };
+    let hasUpdated = false;
+    
+    // Check for keywords in each category
+    Object.entries(phq9Keywords).forEach(([category, keywords]) => {
+      keywords.forEach(keyword => {
+        if (lowercaseText.includes(keyword)) {
+          // Increase score if keyword found (max 3 per category)
+          const currentCatScore = newScores[category as keyof typeof newScores];
+          if (currentCatScore < 3) {
+            newScores[category as keyof typeof newScores] = currentCatScore + 1;
+            hasUpdated = true;
+          }
+        }
+      });
+    });
+    
+    // Update scores if changes were made
+    if (hasUpdated) {
+      setPhq9Scores(newScores);
+    }
+    
+    return Object.values(newScores).reduce((sum, score) => sum + score, 0);
+  };
+
+  // Generate AI response based on context and PHQ-9 assessment
+  const generateAIResponse = (userMessage: string, currentScore: number) => {
+    // Base responses adjusted for different PHQ-9 levels
+    const baseResponses = [
+      "I notice you're sharing some positive experiences. Would you like to talk more about what's going well?",
+      "Thank you for sharing. How long have you been feeling this way?",
+      "I'm here to support you. Can you tell me more about when these feelings started?",
+      "That sounds challenging. Have you noticed any patterns or triggers for these feelings?",
+      "I appreciate your openness. What kind of support do you feel would be most helpful right now?"
+    ];
+    
+    // Add PHQ-9 specific follow-ups based on detected categories
+    const highestCategories = Object.entries(phq9Scores)
+      .filter(([_, score]) => score >= 2) // Categories scoring 2 or higher
+      .map(([cat, _]) => cat);
+    
+    const followUps = {
+      "interest/pleasure": "Have you noticed activities that still bring you some enjoyment, even if small?",
+      "depressed": "When you're feeling down, what has helped you cope in the past?",
+      "sleep": "How has your sleep pattern changed recently?",
+      "fatigue": "Are there particular times of day when your energy feels better?",
+      "appetite": "Has your relationship with food changed lately?",
+      "self-esteem": "I hear some self-critical thoughts. Would you be as hard on a friend facing similar challenges?",
+      "concentration": "Have you found any strategies that help you focus, even briefly?",
+      "psychomotor": "Have others commented on changes in your activity level or way of speaking?",
+      "suicidal": "I'm concerned about what you've shared. Please consider reaching out to a mental health professional or crisis service. Would you like information about available resources?"
+    };
+    
+    // Select appropriate response based on PHQ-9 score
+    let response = "";
+    
+    // If high suicidal score, prioritize that response
+    if (phq9Scores["suicidal"] >= 2) {
+      response = "I'm concerned about what you've shared. Please consider reaching out to a mental health professional or crisis service. Would you like information about available resources?";
+    } 
+    // If we've detected a high score in any category, use a targeted follow-up
+    else if (highestCategories.length > 0) {
+      const randomCategory = highestCategories[Math.floor(Math.random() * highestCategories.length)];
+      response = followUps[randomCategory as keyof typeof followUps];
+    } 
+    // Otherwise use a base response
+    else {
+      response = baseResponses[Math.floor(Math.random() * baseResponses.length)];
+    }
+    
+    return response;
+  };
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
-    // Add user message
+    // Analyze message for PHQ-9 indicators
+    const currentScore = analyzeText(inputValue);
+    
+    // Add user message with sentiment score
     const userMessage = {
       id: `user-${Date.now()}`,
       content: inputValue,
       sender: "user",
       timestamp: format(new Date(), "h:mm a"),
+      sentimentScore: currentScore, // Add the PHQ-9 score to the message
     };
     
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
 
-    // Simulate AI response after a delay
+    // Generate AI response after a delay
     setTimeout(() => {
-      const aiResponses = [
-        "I understand how you're feeling. Would you like to explore why you might be feeling this way?",
-        "That's interesting. Can you tell me more about what triggered these emotions?",
-        "Thank you for sharing. How long have you been feeling this way?",
-        "I appreciate your openness. What do you think would help you feel better right now?",
-        "I'm here to support you. Would it help to discuss some coping strategies that might work for this situation?"
-      ];
-      
-      const randomResponse = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+      const aiResponse = generateAIResponse(inputValue, currentScore);
       
       const aiMessage = {
         id: `ai-${Date.now()}`,
-        content: randomResponse,
+        content: aiResponse,
         sender: "ai",
         timestamp: format(new Date(), "h:mm a"),
       };
@@ -118,6 +236,7 @@ const ChatSession = () => {
                   message={message.content}
                   sender={message.sender as "user" | "ai"}
                   timestamp={message.timestamp}
+                  sentimentScore={"sentimentScore" in message ? message.sentimentScore : undefined}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -150,8 +269,46 @@ const ChatSession = () => {
           </form>
         </div>
         
-        <div className="w-full md:w-64">
+        <div className="w-full md:w-64 space-y-4">
           <MoodSlider value={mood} onChange={handleMoodChange} />
+          
+          {/* PHQ-9 Assessment Card */}
+          <div className="w-full bg-white rounded-2xl p-4 shadow-soft">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-medium">PHQ-9 Assessment</span>
+              <span className="text-xs font-medium px-2 py-1 rounded-full" 
+                style={{ 
+                  backgroundColor: totalPhq9Score <= 4 ? '#4A90E220' : 
+                                totalPhq9Score <= 9 ? '#8A9BAE20' : 
+                                totalPhq9Score <= 14 ? '#F5A62320' : 
+                                totalPhq9Score <= 19 ? '#F9731620' : '#ea384c20',
+                  color: totalPhq9Score <= 4 ? '#4A90E2' : 
+                         totalPhq9Score <= 9 ? '#8A9BAE' : 
+                         totalPhq9Score <= 14 ? '#F5A623' : 
+                         totalPhq9Score <= 19 ? '#F97316' : '#ea384c'
+                }}>
+                {phq9Level}
+              </span>
+            </div>
+            
+            <Progress
+              value={(totalPhq9Score / 27) * 100}
+              className="h-2 mb-1"
+              style={{ 
+                backgroundColor: '#e5e7eb',
+                '--tw-bg-opacity': 1
+              }}
+            />
+            
+            <div className="flex justify-between text-xs text-gray-500 mb-3">
+              <span>0</span>
+              <span>{totalPhq9Score}/27</span>
+            </div>
+            
+            <div className="text-xs text-gray-500">
+              Based on conversation analysis
+            </div>
+          </div>
         </div>
       </div>
     </div>

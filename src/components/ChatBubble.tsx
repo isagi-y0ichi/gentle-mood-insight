@@ -1,14 +1,26 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
+import { CircleDot } from "lucide-react";
 
 interface ChatBubbleProps {
   message: string;
   sender: "user" | "ai";
   timestamp: string;
+  sentimentScore?: number; // Optional PHQ-9 related sentiment score
 }
 
-const ChatBubble = ({ message, sender, timestamp }: ChatBubbleProps) => {
+const ChatBubble = ({ message, sender, timestamp, sentimentScore }: ChatBubbleProps) => {
+  // Function to get color based on sentiment score (PHQ-9 scale)
+  const getSentimentColor = (score?: number) => {
+    if (score === undefined) return "transparent";
+    if (score <= 4) return "#4A90E2"; // Minimal depression - blue
+    if (score <= 9) return "#8A9BAE"; // Mild depression - neutral
+    if (score <= 14) return "#F5A623"; // Moderate depression - amber
+    if (score <= 19) return "#F97316"; // Moderately severe - orange
+    return "#ea384c"; // Severe depression - red
+  };
+
   return (
     <div
       className={cn(
@@ -26,7 +38,21 @@ const ChatBubble = ({ message, sender, timestamp }: ChatBubbleProps) => {
       >
         {message}
       </div>
-      <span className="text-xs text-gray-400 mt-1">{timestamp}</span>
+      <div className="flex items-center gap-2 mt-1">
+        <span className="text-xs text-gray-400">{timestamp}</span>
+        {sender === "user" && sentimentScore !== undefined && (
+          <div 
+            className="flex items-center" 
+            title={`Detected sentiment level: ${sentimentScore}/27`}
+          >
+            <CircleDot 
+              size={12} 
+              className="opacity-70"
+              style={{ color: getSentimentColor(sentimentScore) }} 
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
