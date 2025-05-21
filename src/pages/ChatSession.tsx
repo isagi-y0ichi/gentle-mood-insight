@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -33,8 +34,20 @@ const phq9Keywords = {
   "suicidal": ["better off dead", "harm myself", "suicidal", "end it all", "not worth living", "no point"]
 };
 
+// Type for PHQ-9 scores
+type Phq9ScoresType = Record<string, number>;
+
+// Type for messages
+interface Message {
+  id: string;
+  content: string;
+  sender: "user" | "ai";
+  timestamp: string;
+  sentimentScore?: number;
+}
+
 // Mock conversation starter
-const initialMessages = [
+const initialMessages: Message[] = [
   {
     id: "1",
     content: "Hello! How are you feeling today? I'm here to listen and help you navigate your thoughts and emotions.",
@@ -46,13 +59,13 @@ const initialMessages = [
 const ChatSession = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
-  const [mood, setMood] = useState([5]); // Initial mood value
+  const [mood, setMood] = useState<number[]>([5]); // Initial mood value
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // PHQ-9 assessment state (0-3 for each of 9 categories, total score 0-27)
-  const [phq9Scores, setPhq9Scores] = useState(
+  const [phq9Scores, setPhq9Scores] = useState<Phq9ScoresType>(
     Object.fromEntries(phq9Categories.map(cat => [cat, 0]))
   );
   const [totalPhq9Score, setTotalPhq9Score] = useState(0);
@@ -163,7 +176,7 @@ const ChatSession = () => {
     const userMessage = {
       id: `user-${Date.now()}`,
       content: inputValue,
-      sender: "user",
+      sender: "user" as const,
       timestamp: format(new Date(), "h:mm a"),
       sentimentScore: currentScore, // Add the PHQ-9 score to the message
     };
@@ -178,7 +191,7 @@ const ChatSession = () => {
       const aiMessage = {
         id: `ai-${Date.now()}`,
         content: aiResponse,
-        sender: "ai",
+        sender: "ai" as const,
         timestamp: format(new Date(), "h:mm a"),
       };
       
@@ -234,9 +247,9 @@ const ChatSession = () => {
                 <ChatBubble
                   key={message.id}
                   message={message.content}
-                  sender={message.sender as "user" | "ai"}
+                  sender={message.sender}
                   timestamp={message.timestamp}
-                  sentimentScore={"sentimentScore" in message ? message.sentimentScore : undefined}
+                  sentimentScore={message.sentimentScore}
                 />
               ))}
               <div ref={messagesEndRef} />
@@ -294,9 +307,9 @@ const ChatSession = () => {
             <Progress
               value={(totalPhq9Score / 27) * 100}
               className="h-2 mb-1"
+              // Fixing this style object to use valid CSS properties
               style={{ 
-                backgroundColor: '#e5e7eb',
-                '--tw-bg-opacity': 1
+                backgroundColor: '#e5e7eb'
               }}
             />
             
@@ -316,3 +329,4 @@ const ChatSession = () => {
 };
 
 export default ChatSession;
+
