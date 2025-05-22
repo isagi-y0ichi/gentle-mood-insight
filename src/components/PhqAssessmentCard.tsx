@@ -2,6 +2,7 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 interface PhqAssessmentCardProps {
   totalScore: number;
@@ -37,8 +38,7 @@ const PhqAssessmentCard: React.FC<PhqAssessmentCardProps> = ({
       <CardContent>
         <Progress 
           value={scorePercentage} 
-          className="h-2 mb-2" 
-          indicatorClassName={getScoreColor()}
+          className={cn("h-2 mb-2", getScoreColor())}
         />
         <p className="text-base font-medium">{assessment}</p>
         <p className="text-sm text-muted-foreground mt-1">
