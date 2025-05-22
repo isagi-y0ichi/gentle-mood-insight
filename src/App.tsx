@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import ChatSession from "./pages/ChatSession";
 import NotFound from "./pages/NotFound";
+import Home from "./pages/home";
+import Chat from "./pages/chat";
 
 const queryClient = new QueryClient();
 
@@ -18,7 +20,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/chat" element={<Chat />} />
+          <Route path="/landing" element={<Index />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/chat/:id" element={<ChatSession />} />
           <Route path="*" element={<NotFound />} />
