@@ -93,10 +93,10 @@ export async function mockSendChat(messages: ChatMessage[]): Promise<{
   }
   
   return {
-    reply,
+    reply, // This is now guaranteed to be a string
     sentimentAnalysis: {
-      score: sentimentScore,
-      category,
+      score: sentimentScore, // This is now guaranteed to be a number
+      category, // This is now guaranteed to be a string
     }
   };
 }
